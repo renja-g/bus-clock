@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Clock</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .clock-container {
+            width: 90vw;
+            height: 90vw;
+            max-width: 400px;
+            max-height: 400px;
+        }
+
+        .clock {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: relative;
+            background-color: #ffffff;
+            border: 8px solid #1f2937;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 5px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .number {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            padding-top: 10px;
+            text-align: center;
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: #374151;
+            transform: rotate(var(--rotation));
+        }
+
+        .number span {
+            display: inline-block;
+            transform: rotate(calc(-1 * var(--rotation)));
+        }
+
+        .hand {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform-origin: bottom;
+            transform: translateX(-50%) rotate(0deg);
+            border-radius: 10px;
+            z-index: 10;
+        }
+
+        .hour {
+            width: 10px;
+            height: 28%;
+            background-color: #1f2937;
+        }
+
+        .minute {
+            width: 6px;
+            height: 38%;
+            background-color: #374151;
+        }
+
+        .second {
+            width: 3px;
+            height: 42%;
+            background-color: #ef4444;
+        }
+
+        .center-pivot {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            background-color: #ef4444;
+            border: 3px solid white;
+            border-radius: 50%;
+            z-index: 11;
+        }
+
+        .time-dot {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            z-index: 9;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .tick {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-origin: center;
+            border-radius: 2px;
+            pointer-events: none;
+            z-index: 8;
+            background-color: #9ca3af;
+        }
+
+        .tick.hour {
+            width: 4px;
+            height: 18px;
+            background-color: #374151;
+        }
+
+        .tick.minute {
+            width: 2px;
+            height: 12px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+
+    <div class="clock-container">
+            <div class="clock" id="clock-face">
+            <div class="hand hour" id="hour-hand"></div>
+            <div class="hand minute" id="minute-hand"></div>
+            <div class="hand second" id="second-hand"></div>
+
+            <div class="center-pivot"></div>
+        </div>
+    </div>
+
+    <script>
+        const ENDPOINT_URL = '/api/departures';
+        const MINUTES_PER_HOUR = 60;
+        const DEGREES_PER_MINUTE = 360 / MINUTES_PER_HOUR;
+        const HOUR_HAND_DEGREES = 360 / 12;
+        const CLOCK_BORDER_WIDTH = 8;
+        const TICK_INSET = 2;
+        const HOUR_TICK_LENGTH = 18;
+        const MINUTE_TICK_LENGTH = 12;
+        const DOT_COLOR = '#3b82f6';
+        const SECTION_COLOR = '#4ade80';
+        const DEFAULT_DOT_SIZE = 12;
+
+        const clockFace = document.getElementById('clock-face');
+        const hourHand = document.getElementById('hour-hand');
+        const minuteHand = document.getElementById('minute-hand');
+        const secondHand = document.getElementById('second-hand');
+
+        const state = {
+            dots: [],
+            sections: []
+        };
+
+        function init() {
+            renderNumbers();
+            createTicks();
+            updateClockBackground(state.sections);
+            createTimeDots(state.dots);
+
+            loadAndRenderDepartures();
+            setInterval(loadAndRenderDepartures, 60_000);
+
+            setClock();
+            setInterval(setClock, 1_000);
+
+            window.addEventListener('resize', handleResize);
+        }
+
+        function renderNumbers() {
+            const fragment = document.createDocumentFragment();
+
+            for (let index = 1; index <= 12; index += 1) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'number';
+                wrapper.style.setProperty('--rotation', `${index * 30}deg`);
+
+                const label = document.createElement('span');
+                label.textContent = String(index);
+
+                wrapper.appendChild(label);
+                fragment.appendChild(wrapper);
+            }
+
+            clockFace.appendChild(fragment);
+        }
+
+        function handleResize() {
+            requestAnimationFrame(() => {
+                createTicks();
+                createTimeDots(state.dots);
+            });
+        }
+
+        async function loadAndRenderDepartures() {
+            try {
+                const response = await fetch(ENDPOINT_URL, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`Unexpected response: ${response.status}`);
+                }
+
+                const payload = await response.json();
+                const departures = Array.isArray(payload) ? payload : [];
+                const visuals = computeVisualsFromDepartures(departures);
+
+                state.dots = visuals.dots;
+                state.sections = visuals.sections;
+
+                updateClockBackground(state.sections);
+                requestAnimationFrame(() => {
+                    createTimeDots(state.dots);
+                });
+            } catch (error) {
+                console.error('Failed to load departures', error);
+            }
+        }
+
+        function computeVisualsFromDepartures(departures) {
+            const nowMs = Date.now();
+            const horizonMs = nowMs + 60 * 60 * 1_000;
+
+            const minutesWithinHour = departures
+                .map((departure) => departure.tatsaechliche_abfahrtszeit ?? departure.abfahrtszeit)
+                .filter(Boolean)
+                .map((timestampSeconds) => timestampSeconds * 1_000)
+                .filter((timestamp) => timestamp >= nowMs && timestamp <= horizonMs)
+                .map((timestamp) => new Date(timestamp).getMinutes());
+
+            const uniqueMinutes = [...new Set(minutesWithinHour)].sort((a, b) => a - b);
+            const dots = uniqueMinutes.map((minute) => ({ minute, color: DOT_COLOR, size: DEFAULT_DOT_SIZE }));
+            const sections = buildSections(uniqueMinutes);
+
+            return { dots, sections };
+        }
+
+        function buildSections(minutes) {
+            const rawSections = minutes.flatMap((minute) => {
+                const start = normalizeMinute(minute - 9);
+                const end = normalizeMinute(minute - 4);
+
+                if (start <= end) {
+                    return [{ start, end, color: SECTION_COLOR }];
+                }
+
+                return [
+                    { start, end: MINUTES_PER_HOUR, color: SECTION_COLOR },
+                    { start: 0, end, color: SECTION_COLOR }
+                ];
+            });
+
+            return mergeSections(rawSections);
+        }
+
+        function mergeSections(sections) {
+            const sortedSections = [...sections].sort((a, b) => a.start - b.start);
+            const merged = [];
+
+            for (const section of sortedSections) {
+                const last = merged[merged.length - 1];
+
+                if (!last) {
+                    merged.push({ ...section });
+                    continue;
+                }
+
+                if (section.start <= last.end) {
+                    last.end = Math.max(last.end, section.end);
+                    continue;
+                }
+
+                merged.push({ ...section });
+            }
+
+            return merged;
+        }
+
+        function normalizeMinute(minute) {
+            return ((minute % MINUTES_PER_HOUR) + MINUTES_PER_HOUR) % MINUTES_PER_HOUR;
+        }
+
+        function updateClockBackground(sections) {
+            const sortedSections = [...sections].sort((a, b) => a.start - b.start);
+            const stops = [];
+            let currentAngle = 0;
+            const defaultColor = '#ffffff';
+
+            sortedSections.forEach((section) => {
+                const startAngle = section.start * DEGREES_PER_MINUTE;
+                const endAngle = section.end * DEGREES_PER_MINUTE;
+
+                if (startAngle > currentAngle) {
+                    stops.push(`${defaultColor} ${currentAngle}deg ${startAngle}deg`);
+                }
+
+                stops.push(`${section.color} ${startAngle}deg ${endAngle}deg`);
+                currentAngle = endAngle;
+            });
+
+            if (currentAngle < 360) {
+                stops.push(`${defaultColor} ${currentAngle}deg 360deg`);
+            }
+
+            clockFace.style.background = `conic-gradient(${stops.join(', ')})`;
+        }
+
+        function createTimeDots(dots) {
+            clockFace.querySelectorAll('.time-dot').forEach((dot) => dot.remove());
+
+            const { width: clockSize } = clockFace.getBoundingClientRect();
+            const radius = clockSize / 2;
+
+            const fragment = document.createDocumentFragment();
+
+            dots.forEach((dotConfig) => {
+                const dot = document.createElement('div');
+                const dotSize = dotConfig.size ?? DEFAULT_DOT_SIZE;
+                const angleRad = toRadians(dotConfig.minute * DEGREES_PER_MINUTE - 90);
+
+                dot.className = 'time-dot';
+                dot.style.backgroundColor = dotConfig.color;
+                dot.style.width = `${dotSize}px`;
+                dot.style.height = `${dotSize}px`;
+
+                const offsetPercent = dotConfig.offset ?? 0;
+                const offsetPixels = (offsetPercent / 100) * radius;
+                const distanceFromCenter = radius - CLOCK_BORDER_WIDTH - dotSize / 2 - offsetPixels;
+
+                const x = Math.cos(angleRad) * distanceFromCenter;
+                const y = Math.sin(angleRad) * distanceFromCenter;
+
+                dot.style.top = `calc(50% + ${y}px)`;
+                dot.style.left = `calc(50% + ${x}px)`;
+                dot.style.transform = 'translate(-50%, -50%)';
+
+                fragment.appendChild(dot);
+            });
+
+            clockFace.appendChild(fragment);
+        }
+
+        function createTicks() {
+            clockFace.querySelectorAll('.tick').forEach((tick) => tick.remove());
+
+            const { width: clockSize } = clockFace.getBoundingClientRect();
+            const radius = clockSize / 2;
+            const fragment = document.createDocumentFragment();
+
+            for (let minute = 0; minute < MINUTES_PER_HOUR; minute += 1) {
+                const angle = minute * DEGREES_PER_MINUTE;
+                const isHourMark = minute % 5 === 0;
+                const length = isHourMark ? HOUR_TICK_LENGTH : MINUTE_TICK_LENGTH;
+                const distance = radius - CLOCK_BORDER_WIDTH - TICK_INSET - length / 2;
+
+                const tick = document.createElement('div');
+                tick.className = `tick ${isHourMark ? 'hour' : 'minute'}`;
+                tick.style.transform = `translate(-50%, -50%) rotate(${angle}deg) translateY(-${distance}px)`;
+
+                fragment.appendChild(tick);
+            }
+
+            clockFace.appendChild(fragment);
+        }
+
+        function setClock() {
+            const now = new Date();
+            const seconds = now.getSeconds();
+            const minutes = now.getMinutes();
+            const hours = now.getHours();
+
+            const secondsAngle = seconds * DEGREES_PER_MINUTE;
+            const minutesAngle = minutes * DEGREES_PER_MINUTE + (seconds / MINUTES_PER_HOUR) * DEGREES_PER_MINUTE;
+            const hoursAngle = (hours % 12) * HOUR_HAND_DEGREES + (minutes / MINUTES_PER_HOUR) * HOUR_HAND_DEGREES;
+
+            secondHand.style.transform = `translateX(-50%) rotate(${secondsAngle}deg)`;
+            minuteHand.style.transform = `translateX(-50%) rotate(${minutesAngle}deg)`;
+            hourHand.style.transform = `translateX(-50%) rotate(${hoursAngle}deg)`;
+        }
+
+        function toRadians(degrees) {
+            return (degrees * Math.PI) / 180;
+        }
+
+        init();
+    </script>
+</body>
+</html>
+
