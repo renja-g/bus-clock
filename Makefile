@@ -1,4 +1,4 @@
-.PHONY: dev prod stop clean logs logs-dev
+.PHONY: dev dev-build prod prod-build stop clean logs logs-dev
 
 # Development mode with hot reload
 dev:
