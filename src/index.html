@@ -29,13 +29,11 @@
             background-color: var(--clock-black);
             border-radius: 50%;
             position: relative;
-            /* Outer shadow for lift from wall */
+            z-index: 0;
             box-shadow: 
                 30px 30px 60px rgba(0,0,0,0.4),
                 -10px -10px 30px rgba(255,255,255,0.05);
-            /* The outer bezel - raised */
             border: 15px solid #2a2a2a;
-            /* Gradient to make the bezel look slightly rounded */
             background-image: linear-gradient(135deg, #333 0%, #1a1a1a 100%);
         }
 
@@ -64,7 +62,7 @@
             border-radius: 50%;
             background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 50%, rgba(255,255,255,0) 100%);
             pointer-events: none;
-            z-index: 10;
+            z-index: 0;
         }
 
         .face {
@@ -85,7 +83,6 @@
             transform: translate(-50%, -50%);
             border-radius: 50%;
             background: radial-gradient(circle at 40% 35%, #1f1f1f 0%, #151515 60%, #101010 100%);
-            /* The "going inside" effect for the middle part */
             box-shadow: 
                 inset 8px 8px 16px rgba(0, 0, 0, 0.9),
                 inset -3px -3px 10px rgba(255, 255, 255, 0.03),
@@ -198,9 +195,15 @@
 
         .hand.second {
             width: 2px;
-            height: 195px;
-            background: linear-gradient(to bottom, #000000 0px, #000000 150px, var(--clock-yellow) 150px, var(--clock-yellow) 200px);
-            z-index: 6;
+            height: calc(var(--clock-size) * 0.5);
+            background: linear-gradient(
+                to bottom,
+                #000000 0%,
+                #000000 75%,
+                var(--clock-yellow) 75%,
+                var(--clock-yellow) 100%
+            );
+            z-index: 30;
         }
 
         .center-cap {
@@ -226,7 +229,6 @@
             .number span {
                 font-size: 20px;
             }
-            .hand.second { height: 110px; }
         }
     </style>
 </head>
