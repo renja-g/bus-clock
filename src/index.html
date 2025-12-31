@@ -457,9 +457,11 @@
             const minutes = now.getMinutes() + smoothSeconds / 60;
             const hours = now.getHours() + minutes / 60;
 
-            const secondsAngle = secondsForAngle * DEGREES_PER_MINUTE;
-            const minutesAngle = minutes * DEGREES_PER_MINUTE;
-            const hoursAngle = (hours % 12) * HOUR_HAND_DEGREES;
+            const HAND_ANGLE_OFFSET_DEG = -180;
+
+            const secondsAngle = secondsForAngle * DEGREES_PER_MINUTE + HAND_ANGLE_OFFSET_DEG;
+            const minutesAngle = minutes * DEGREES_PER_MINUTE + HAND_ANGLE_OFFSET_DEG;
+            const hoursAngle = (hours % 12) * HOUR_HAND_DEGREES + HAND_ANGLE_OFFSET_DEG;
 
             secondHand.style.transform = `translateX(-50%) rotate(${secondsAngle}deg)`;
             minuteHand.style.transform = `translateX(-50%) rotate(${minutesAngle}deg)`;
