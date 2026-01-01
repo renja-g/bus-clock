@@ -12,6 +12,11 @@ if (!BUS_ENDPOINT) {
   process.exit(1);
 }
 
+app.get('/site.webmanifest', (req, res) => {
+  res.type('application/manifest+json');
+  res.sendFile(path.join(__dirname, 'public', 'site.webmanifest'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Proxy endpoint to fetch bus departures

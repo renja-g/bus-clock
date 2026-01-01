@@ -11,6 +11,7 @@ services:
       - "8080:8080"
     volumes:
       # Mount files so changes are reflected immediately
+      - ../public:/app/public:ro
       - ../src/index.html:/app/public/index.html:ro
       - ../src/server.js:/app/server.js:ro
     environment:

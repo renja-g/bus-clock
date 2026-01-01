@@ -8,7 +8,7 @@ RUN npm install --production
 
 # Copy server and frontend files
 COPY src/server.js ./
-RUN mkdir -p public
+COPY public ./public/
 COPY src/index.html ./public/
 
 EXPOSE 8080
